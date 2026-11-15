@@ -1,67 +1,86 @@
 @IsTest
 private class CalculMontantTest {
 
+    @TestSetup
+    static void createTestData() {
+
+        Product2 product = new Product2(
+            Name = 'Produit montant net',
+            IsActive = true
+        );
+        insert product;
+
+        PricebookEntry pricebookEntry = new PricebookEntry(
+            Pricebook2Id = Test.getStandardPricebookId(),
+            Product2Id = product.Id,
+            UnitPrice = 100,
+            IsActive = true
+        );
+        insert pricebookEntry;
+    }
+
     @IsTest
-    static void testNetAmountOnMultipleOrders() {
+    static void testNetAmountAfterOrderItemInsert() {
 
         Account testAccount = new Account(
             Name = 'Compte test montant net'
         );
         insert testAccount;
 
-        Id standardPricebookId =
-            Test.getStandardPricebookId();
+        Order testOrder = new Order(
+            AccountId = testAccount.Id,
+            EffectiveDate = Date.today(),
+            Status = 'Draft',
+            Pricebook2Id = Test.getStandardPricebookId(),
+            ShipmentCost__c = 20
+        );
+        insert testOrder;
 
-        List<Order> ordersToInsert = new List<Order>();
-
-        for (Integer index = 0; index < 3; index++) {
-            ordersToInsert.add(
-                new Order(
-                    AccountId = testAccount.Id,
-                    EffectiveDate = Date.today(),
-                    Status = 'Draft',
-                    Pricebook2Id = standardPricebookId,
-                    ShipmentCost__c = 20
-                )
-            );
-        }
+        PricebookEntry pricebookEntry = [
+            SELECT Id
+            FROM PricebookEntry
+            WHERE Product2.Name = 'Produit montant net'
+            LIMIT 1
+        ];
 
         Test.startTest();
 
-        insert ordersToInsert;
+        insert new OrderItem(
+            OrderId = testOrder.Id,
+            PricebookEntryId = pricebookEntry.Id,
+            Quantity = 2,
+            UnitPrice = 100
+        );
 
         Test.stopTest();
 
-        List<Order> insertedOrders = [
+        Order updatedOrder = [
             SELECT
-                Id,
                 TotalAmount,
                 ShipmentCost__c,
                 NetAmount__c
             FROM Order
-            WHERE Id IN :ordersToInsert
+            WHERE Id = :testOrder.Id
         ];
 
         System.assertEquals(
-            3,
-            insertedOrders.size(),
-            'Les trois commandes doivent être traitées.'
+            200,
+            updatedOrder.TotalAmount,
+            'Le montant total doit être égal à 200.'
         );
 
-        for (Order currentOrder : insertedOrders) {
-            System.assertEquals(
-                -20,
-                currentOrder.NetAmount__c,
-                'Le montant net doit être calculé sur chaque commande.'
-            );
-        }
+        System.assertEquals(
+            180,
+            updatedOrder.NetAmount__c,
+            'Le montant net doit être égal à 200 - 20.'
+        );
     }
 
     @IsTest
-    static void testNetAmountAfterOrderUpdate() {
+    static void testNetAmountAfterShipmentCostUpdate() {
 
         Account testAccount = new Account(
-            Name = 'Compte test mise à jour'
+            Name = 'Compte test frais de livraison'
         );
         insert testAccount;
 
@@ -90,19 +109,16 @@ private class CalculMontantTest {
             WHERE Id = :testOrder.Id
         ];
 
-        Decimal expectedNetAmount =
+        Decimal expectedAmount =
             (updatedOrder.TotalAmount == null
                 ? 0
                 : updatedOrder.TotalAmount)
-            -
-            (updatedOrder.ShipmentCost__c == null
-                ? 0
-                : updatedOrder.ShipmentCost__c);
+            - 75;
 
         System.assertEquals(
-            expectedNetAmount,
+            expectedAmount,
             updatedOrder.NetAmount__c,
-            'Le montant net doit être recalculé après modification.'
+            'Le montant net doit être recalculé après modification des frais.'
         );
     }
 }

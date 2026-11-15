@@ -8,11 +8,14 @@ export default class Orders extends LightningElement {
 
     sumOrdersOfCurrentAccount = 0;
     error;
+    isLoading = true;
 
     @wire(getSumOrdersByAccount, {
         accountId: '$recordId'
     })
     wiredOrders({ data, error }) {
+        this.isLoading = false;
+
         if (data !== undefined) {
             this.sumOrdersOfCurrentAccount = Number(data);
             this.error = undefined;
@@ -28,8 +31,8 @@ export default class Orders extends LightningElement {
 
     get hasActivatedOrders() {
         return (
-            !this.hasError &&
-            this.sumOrdersOfCurrentAccount > 0
+            !this.hasError
+            && this.sumOrdersOfCurrentAccount > 0
         );
     }
 }
