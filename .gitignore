@@ -43,3 +43,11 @@ $RECYCLE.BIN/
 **/__pycache__/
 **/.venv/
 **/venv/
+# Clés et certificats Salesforce JWT
+server.key
+server.crt
+server.csr
+server.key.base64
+*.key
+*.crt
+*.csr
